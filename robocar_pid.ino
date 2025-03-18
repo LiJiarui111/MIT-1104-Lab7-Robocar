@@ -31,8 +31,6 @@ const int SD_CS = 5;          // SD card module CS pin
 // PWM Configuration
 const int PWM_FREQ = 30000;    // PWM frequency for motor control
 const int PWM_RESOLUTION = 8; // 8-bit resolution (0-255)
-const int MOTOR_CHANNEL_R = 0; // PWM channel for right motor
-const int MOTOR_CHANNEL_L = 1; // PWM channel for left motor
 
 // PID Control Constants (adjusted for meter units)
 float Kp = 500.0;       // Proportional gain (was 5.0)
@@ -232,10 +230,8 @@ void setupMotors() {
     pinMode(MOTOR_IN4, OUTPUT);
     
     // Configure PWM channels for motor speed control
-    ledcSetup(MOTOR_CHANNEL_R, PWM_FREQ, PWM_RESOLUTION);
-    ledcSetup(MOTOR_CHANNEL_L, PWM_FREQ, PWM_RESOLUTION);
-    ledcAttachPin(MOTOR_ENA, MOTOR_CHANNEL_R);
-    ledcAttachPin(MOTOR_ENB, MOTOR_CHANNEL_L);
+    ledcAttach(MOTOR_ENA, PWM_FREQ, PWM_RESOLUTION);
+    ledcAttach(MOTOR_ENB, PWM_FREQ, PWM_RESOLUTION);
     
     // Initially stop motors
     stopMotors();
@@ -255,26 +251,26 @@ bool setupSDCard() {
 
 void moveForward(int speedLeft, int speedRight) {
     // Set direction pins for forward movement
-    digitalWrite(MOTOR_IN1, HIGH);
-    digitalWrite(MOTOR_IN2, LOW);
+    digitalWrite(MOTOR_IN1, LOW);
+    digitalWrite(MOTOR_IN2, HIGH);
     digitalWrite(MOTOR_IN3, HIGH);
     digitalWrite(MOTOR_IN4, LOW);
     
     // Set motor speeds
-    ledcWrite(MOTOR_CHANNEL_L, speedLeft);
-    ledcWrite(MOTOR_CHANNEL_R, speedRight);
+    ledcWrite(MOTOR_ENA, speedLeft);
+    ledcWrite(MOTOR_ENB, speedRight);
 }
 
 void moveBackward(int speedLeft, int speedRight) {
     // Set direction pins for backward movement
-    digitalWrite(MOTOR_IN1, LOW);
-    digitalWrite(MOTOR_IN2, HIGH);
+    digitalWrite(MOTOR_IN1, HIGH);
+    digitalWrite(MOTOR_IN2, LOW);
     digitalWrite(MOTOR_IN3, LOW);
     digitalWrite(MOTOR_IN4, HIGH);
     
     // Set motor speeds
-    ledcWrite(MOTOR_CHANNEL_L, speedLeft);
-    ledcWrite(MOTOR_CHANNEL_R, speedRight);
+    ledcWrite(MOTOR_ENA, speedLeft);
+    ledcWrite(MOTOR_ENB, speedRight);
 }
 
 void stopMotors() {
@@ -285,8 +281,8 @@ void stopMotors() {
     digitalWrite(MOTOR_IN4, LOW);
     
     // Set speeds to 0
-    ledcWrite(MOTOR_CHANNEL_L, 0);
-    ledcWrite(MOTOR_CHANNEL_R, 0);
+    ledcWrite(MOTOR_ENA, 0);
+    ledcWrite(MOTOR_ENB, 0);
 }
 
 void logData(unsigned long time, float distance, float error, float control) {
