@@ -33,9 +33,9 @@ const int PWM_FREQ = 30000;    // PWM frequency for motor control
 const int PWM_RESOLUTION = 8; // 8-bit resolution (0-255)
 
 // PID Control Constants (adjusted for meter units)
-float Kp = 500.0;       // Proportional gain (was 5.0)
-float Ki = 100.0;       // Integral gain (was 1.0)
-float Kd = 200.0;       // Derivative gain (was 2.0)
+float Kp = 150.0;       // Proportional gain (reduced from 500.0)
+float Ki = 25.0;        // Integral gain (reduced from 100.0)
+float Kd = 50.0;        // Derivative gain (reduced from 200.0)
 
 // PID Variables
 const float TARGET_DISTANCE = 0.20;  // Target distance in m (was 20 cm)
@@ -47,15 +47,15 @@ unsigned long prevTime = 0;         // Previous time for dt calculation
 
 // Control Variables
 const int BASE_SPEED = 150;           // Base motor speed (0-255)
-const int MAX_SPEED = 255;            // Maximum motor speed
+const int MAX_SPEED = 200;            // Maximum motor speed (reduced from 255)
 const int MIN_SPEED = 0;              // Minimum motor speed
 const int SAMPLE_TIME = 50;           // PID sample time in milliseconds
 
 // Double Integrator Model Variables
 float currentSpeed = 0.0;             // Current speed of the car in m/s (can be negative)
-const float MAX_ACCEL = 0.5;          // Maximum acceleration in m/s²
+const float MAX_ACCEL = 0.3;          // Maximum acceleration in m/s² (reduced from 0.5)
 const float FRICTION = 0.1;           // Friction coefficient to simulate real-world damping
-const float MAX_REAL_SPEED = 1.5;     // Maximum speed in m/s (at PWM=255)
+const float MAX_REAL_SPEED = 0.8;     // Maximum speed in m/s (reduced from 1.5)
 const float PWM_TO_SPEED = MAX_REAL_SPEED / MAX_SPEED;  // Conversion factor from PWM to m/s
 const float SPEED_TO_PWM = MAX_SPEED / MAX_REAL_SPEED;  // Conversion factor from m/s to PWM
 
@@ -121,10 +121,7 @@ void loop() {
         
         if (distance > 0) {  // Valid distance reading
             // Compute PID output as acceleration command
-            float pidOutput = computePID(distance);
-            
-            // Limit acceleration
-            float acceleration = constrain(pidOutput, -MAX_ACCEL, MAX_ACCEL);
+            float acceleration = computePID(distance);
             
             // Calculate dt in seconds
             float dt = elapsedTime / 1000.0;
@@ -135,14 +132,18 @@ void loop() {
             // Apply simple friction model
             currentSpeed -= FRICTION * currentSpeed * dt;
             
+            // Cap the speed to ensure the car doesn't move too fast
+            currentSpeed = constrain(currentSpeed, -MAX_REAL_SPEED, MAX_REAL_SPEED);
+            
             // Convert speed in m/s to motor PWM values
-            int motorSpeed = abs(constrain(currentSpeed * SPEED_TO_PWM, -MAX_SPEED, MAX_SPEED));
+            int motorSpeed = abs(round(currentSpeed * SPEED_TO_PWM));
+            motorSpeed = constrain(motorSpeed, 0, MAX_SPEED);
             
             // Apply control to motors based on speed direction
-            if (currentSpeed > 0) {
+            if (currentSpeed > 0.05) {  // Small deadband to prevent jitter
                 // Move forward (car is too far from object)
                 moveForward(motorSpeed, motorSpeed);
-            } else if (currentSpeed < 0) {
+            } else if (currentSpeed < -0.05) {
                 // Move backward (car is too close to object)
                 moveBackward(motorSpeed, motorSpeed);
             } else {
@@ -206,18 +207,32 @@ float computePID(float distance) {
     unsigned long currentTime = millis();
     float dt = (currentTime - prevTime) / 1000.0;
     
+    // Ensure dt is reasonable (in case of overflow or too much time elapsed)
+    if (dt <= 0 || dt > 1.0) {
+        dt = SAMPLE_TIME / 1000.0;  // Use expected sample time as fallback
+    }
+    
     // Calculate integral term with anti-windup
     integral += error * dt;
-    integral = constrain(integral, -50, 50);  // Limit integral buildup
+    integral = constrain(integral, -30, 30);  // Reduced integral limit
     
-    // Calculate derivative term
-    derivative = (error - prevError) / dt;
+    // Calculate derivative term (using filter to reduce noise)
+    // Using rate of change of measurement instead of rate of change of error
+    float distanceChange = distance - previousDistance;
+    derivative = -distanceChange / dt;  // Negative because distance increasing means error decreasing
+    
+    // Apply simple low-pass filter to derivative term
+    derivative = 0.7 * derivative + 0.3 * (error - prevError) / dt;
     
     // Calculate PID output (acceleration command)
     float control = Kp * error + Ki * integral + Kd * derivative;
     
-    // Update previous error
+    // Limit acceleration command
+    control = constrain(control, -MAX_ACCEL, MAX_ACCEL);
+    
+    // Update previous values
     prevError = error;
+    previousDistance = distance;
     
     return control;
 }
