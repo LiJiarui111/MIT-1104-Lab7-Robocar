@@ -33,9 +33,9 @@ const int PWM_FREQ = 30000;    // PWM frequency for motor control
 const int PWM_RESOLUTION = 8; // 8-bit resolution (0-255)
 
 // PID Control Constants (adjusted for meter units)
-float Kp = 80.0;       // Reduced proportional gain
-float Ki = 10.0;       // Small integral gain to eliminate steady-state error
-float Kd = 60.0;       // Reduced derivative gain
+float Kp = 20.0;       // Reduced proportional gain
+float Ki = 0.0;       // Small integral gain to eliminate steady-state error
+float Kd = 500.0;       // Reduced derivative gain
 
 // PID Variables
 const float TARGET_DISTANCE = 0.20;  // Target distance in m (was 20 cm)
@@ -47,13 +47,13 @@ unsigned long prevTime = 0;         // Previous time for dt calculation
 
 // Control Variables
 const int BASE_SPEED = 150;           // Base motor speed (0-255)
-const int MAX_SPEED = 200;            // Maximum motor speed (reduced from 255)
+const int MAX_SPEED = 50;            // Maximum motor speed (reduced from 255)
 const int MIN_SPEED = 0;              // Minimum motor speed
 const int SAMPLE_TIME = 50;           // PID sample time in milliseconds
 
 // Double Integrator Model Variables
 float currentSpeed = 0.0;             // Current speed of the car in m/s (can be negative)
-const float MAX_ACCEL = 0.3;          // Maximum acceleration in m/s² (reduced from 0.5)
+const float MAX_ACCEL = 9999.0;          // Maximum acceleration in m/s² (reduced from 0.5)
 const float FRICTION = 0.0;           // Friction coefficient to simulate real-world damping
 const float MAX_REAL_SPEED = 0.8;     // Maximum speed in m/s (reduced from 1.5)
 const float PWM_TO_SPEED = MAX_REAL_SPEED / MAX_SPEED;  // Conversion factor from PWM to m/s
@@ -145,7 +145,7 @@ void loop() {
             currentSpeed = constrain(currentSpeed, -MAX_SPEED, MAX_SPEED);
             
             // Convert speed in m/s to motor PWM values
-            int motorSpeed = abs(round(currentSpeed));
+            int motorSpeed = map(abs(round(currentSpeed)), 0, 50, 180, 240);
             
             // Apply control to motors based on speed direction
             if (currentSpeed > MOTOR_DEADBAND) {
@@ -273,6 +273,9 @@ void moveForward(int speedLeft, int speedRight) {
     
     // Set motor speeds
     ledcWrite(MOTOR_ENA, speedLeft);
+    // ledcWrite(MOTOR_ENB, speedRight*0.93);
+    // ledcWrite(MOTOR_ENB, speedRight);
+    // ledcWrite(MOTOR_ENB, speedRight*0.98);
     ledcWrite(MOTOR_ENB, speedRight);
 }
 
@@ -285,6 +288,9 @@ void moveBackward(int speedLeft, int speedRight) {
     
     // Set motor speeds
     ledcWrite(MOTOR_ENA, speedLeft);
+    // ledcWrite(MOTOR_ENB, speedRight*0.93);
+    // ledcWrite(MOTOR_ENB, speedRight);
+    // ledcWrite(MOTOR_ENB, speedRight*0.98);
     ledcWrite(MOTOR_ENB, speedRight);
 }
 
